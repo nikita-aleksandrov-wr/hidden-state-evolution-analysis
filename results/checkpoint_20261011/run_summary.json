@@ -1,0 +1,40 @@
+{
+  "run_id": "baseline_lorenz_20261011",
+  "config": "configs/baseline_chronos2_lorenz.json",
+  "seed": 2026,
+  "model": "amazon/chronos-2",
+  "data": {
+    "system": "Lorenz",
+    "coordinate": "x",
+    "observations": 32768,
+    "burn_in": 1024,
+    "noise": 0
+  },
+  "states": {
+    "context_raw": 512,
+    "stride_raw": 16,
+    "primary_block_zero_based": 5,
+    "horizon_patches": 1
+  },
+  "pairs": {
+    "test": 345,
+    "train": 1401,
+    "val": 140
+  },
+  "selected_alpha": 10.0,
+  "gpu": "NVIDIA H200",
+  "pipeline_seconds": 12.81,
+  "stage_seconds": {
+    "data": 2.02,
+    "model_load": 1.15,
+    "extraction": 2.02,
+    "fit": 2.87,
+    "prediction": 0.03
+  },
+  "checks": {
+    "unit_tests_passed": 12,
+    "split_audit_passed": true,
+    "smoke_repeat_exact": true,
+    "test_evaluated": false
+  }
+}

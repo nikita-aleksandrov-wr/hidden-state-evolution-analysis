@@ -1,0 +1,36 @@
+{
+  "seed": 2026,
+  "threads": 4,
+  "model": {
+    "id": "amazon/chronos-2",
+    "revision": "29ec3766d36d6f73f0696f85560a422f50e8498c",
+    "dtype": "float32",
+    "middle_layer_index": null,
+    "capture_next_layer": true,
+    "batch_size": 32
+  },
+  "data": {
+    "system": "Lorenz",
+    "coordinate": 0,
+    "trajectory_length": 32768,
+    "burn_in": 1024,
+    "initial_condition": [1.0, 1.0, 1.0],
+    "points_per_period": 128,
+    "noise_std": 0.0,
+    "rtol": 1e-9,
+    "atol": 1e-12
+  },
+  "state_extraction": {
+    "context_length_raw": 512,
+    "step_in_patches": 1,
+    "storage_dtype": "float16"
+  },
+  "split": {"train_fraction": 0.7, "val_end_fraction": 0.8},
+  "prediction": {"horizon_patches": 1},
+  "ridge": {
+    "alpha_grid": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+    "scale_inputs": true,
+    "selection_metric": "validation_r2",
+    "shuffled_target_control": true
+  }
+}

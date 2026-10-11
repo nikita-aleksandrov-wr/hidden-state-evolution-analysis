@@ -1,0 +1,11 @@
+torch==2.8.0
+chronos-forecasting==2.3.2
+transformers==4.54.1
+dysts==0.96
+numpy==1.26.4
+scipy==1.17.1
+scikit-learn==1.9.1
+matplotlib==3.10.8
+pandas==2.3.3
+# dysts imports GluonTS/Arrow; newer Arrow releases require NumPy 2 at import time.
+pyarrow==20.0.0

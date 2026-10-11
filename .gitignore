@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments / secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Local data / model / caches / large artifacts
+/data/
+/cache/
+/artifacts/
+/activations/
+outputs/
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+
+# Logs / temporary
+*.log
+*.tmp
+*.temp
+.ipynb_checkpoints/
+
+# Publish only the readable checkpoint summary and figures.
+/results/**
+!/results/**/
+!/results/**/README.md
+!/results/**/baseline_summary.csv
+!/results/**/run_summary.json
+!/results/**/baseline_validation.png
+!/results/**/lorenz_data.png
