@@ -98,10 +98,15 @@ def main():
     selection = read(root / "research_controls/primary_class_selection.json")
     h2 = read(root / "research_controls/declared_h2_and_counterchecks.json")
     all_rows.extend({"section": "h2_specificity", "model": r["temporal_model_class"], "horizon": 1, **r} for r in h2)
-    desc = mean_rows([r for r in read(root / "research_controls/descriptive.json")
-                      if r["split"] == "val" and r["representation"].endswith("_native")],
+    raw_descriptions = read(root / "research_controls/descriptive.json")
+    desc = mean_rows([r for r in raw_descriptions
+                      if r["split"] == "val" and r["representation"] in ("hidden_native", "observed_patch_native")],
                      ["dataset", "condition", "protocol", "representation"],
                      ["mean_relative_adjacent_jump", "lag1_cosine"])
+    desc.extend(mean_rows([r for r in raw_descriptions
+                           if r["split"] == "val" and r["representation"] == "depth_transition_native"],
+                          ["dataset", "condition", "protocol", "representation"],
+                          ["mean_relative_adjacent_jump", "lag1_cosine", "jump_energy_gini"]))
     all_rows.extend({"section": "native_description", "model": r["representation"], **r} for r in desc)
     standardized = []
     for row in read(root / "research_controls/descriptive.json"):
@@ -143,8 +148,8 @@ def main():
             [lookup(resolution, dataset, "neural_ode", 4, section="dense", substeps=16,
                     subset="all_future")["relative_error"]])
     table(paper / "interpolation_results.tex",
-          ["Dataset", "Ridge", "ODE $dt=1/4$", "ODE $dt=1/16$"], interpolation)
-    table(paper / "long_results.tex", ["Dataset", "Ridge", "ODE $dt=1$", "ODE $dt=1/16$"],
+          ["Dataset", "Ridge", "ODE ($1/4$)", "ODE ($1/16$)"], interpolation)
+    table(paper / "long_results.tex", ["Dataset", "Ridge", "ODE (1)", "ODE ($1/16$)"],
           [[LABELS.get(d, d), lookup(long, d, "ridge_original", 256)["r2"], lookup(long, d, "neural_ode", 256)["r2"],
             lookup(resolution, d, "neural_ode", 256, section="long", substeps=16)["r2"]]
            for d in DATASETS])
@@ -169,7 +174,7 @@ def main():
                           and r["temporal_model_class"] == selection["selected"]
                           and r["comparison"] == "constant_mean_vs_depth")["local_threshold_met"] else "No"]
             for d in DATASETS + ["white_noise"]])
-    plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False,
+    plt.rcParams.update({"font.size": 11, "axes.spines.top": False, "axes.spines.right": False,
                          "savefig.dpi": 190, "figure.facecolor": "white"})
     fig, axes = plt.subplots(1, 3, figsize=(10.2, 3.1), sharey=True)
     methods = [("ridge_original", "Ridge", long), ("neural_ode", "ODE dt=1", long),
