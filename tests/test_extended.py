@@ -71,6 +71,15 @@ class ExtendedModelsTests(unittest.TestCase):
                 manifests.append(anchors)
             self.assertEqual(manifests[0], manifests[1])
 
+    def test_variational_qr_recovers_known_lyapunov_exponents(self):
+        from mosd_hidden_dynamics.chaos_checks import finite_jacobian, lyapunov_spectrum
+        a = np.diag([.1, -.2, -.4])
+        rhs = lambda x, t: a @ x
+        np.testing.assert_allclose(finite_jacobian(rhs, np.array([1., 2., 3.]), 0), a, atol=1e-9)
+        result = lyapunov_spectrum(rhs, lambda x, t: a, np.ones(3), 1, burn_periods=0,
+                                   periods=4, intervals_per_period=2)
+        np.testing.assert_allclose(result["exponents_per_time"], [.1, -.2, -.4], atol=1e-9)
+
     def test_dmd_reconstructs_affine_map_and_rolls_its_own_state(self):
         rng = np.random.default_rng(7)
         x = rng.normal(size=(300, 3))
