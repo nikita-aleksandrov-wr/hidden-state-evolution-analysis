@@ -27,8 +27,9 @@ def main():
             for row in json.loads((path.parent / "metrics.json").read_text()):
                 assert np.isfinite(row["r2"]) and row["r2"] <= 1 + 1e-8
                 assert np.isfinite(row["cosine"]) and abs(row["cosine"]) <= 1 + 1e-8
-    for name in ("ode_interpolation", "research_controls", "chaotic_regimes"):
+    for name in ("ode_interpolation", "research_controls"):
         assert not json.loads((root / name / "complete.json").read_text())["test_evaluated"]
+    assert json.loads((root / "chaotic_regimes/complete.json").read_text())["no_model_test_data_used"]
     main_registry = json.loads((root / "series_registry.json").read_text())
     extra_registry = json.loads((extra / "series_registry.json").read_text())
     reserved_count, feature_count, anchor_count = 0, 0, 0
@@ -71,6 +72,13 @@ def main():
                 assert int(row["receptive_start"]) >= 0
                 if protocol == "out_of_series":
                     assert row["split"] == record["role"]
+                else:
+                    boundary = int(record["length"] * .7)
+                    if row["split"] == "train":
+                        assert int(row["max_target_end"]) < boundary
+                    else:
+                        context = json.loads((run / "config_requested.json").read_text())["context_length"]
+                        assert int(row["receptive_start"]) >= boundary + context
                 anchor_count += 1
     for dataset in ("Lorenz", "Rossler", "electricity"):
         for protocol in ("in_series", "out_of_series"):
