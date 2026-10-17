@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Check FP16 storage against fresh FP32 states without refitting")
+    parser = argparse.ArgumentParser(description="Check FP16 storage against fresh FP32 states without retuning")
     parser.add_argument("--run-dir", required=True)
     parser.add_argument("--device", default="cuda:7")
     args = parser.parse_args()
@@ -71,7 +71,8 @@ def main():
     save_json(output / "metrics.json", rows)
     write_rows(output / "metrics.csv", rows)
     save_json(output / "run_metadata.json", {"source": source_record(repo), "sample": "first 64 eligible one-step pairs of first unseen validation series",
-              "refitted": False, "random_fit": "same cached FP16 train inputs, targets and previously selected alpha", "test_evaluated": False})
+              "hyperparameters_retuned": False, "pretrained_readout_refitted": False,
+              "random_fit": "reconstructed from the same cached FP16 train inputs, targets and previously selected alpha", "test_evaluated": False})
     save_json(output / "complete.json", {"cases": len(rows), "max_absolute_r2_change": max(r["absolute_r2_change"] for r in rows),
               "max_absolute_cosine_change": max(r["absolute_cosine_change"] for r in rows),
               "all_fp16_roundtrips_identical": all(r["fp16_roundtrip_identical"] for r in rows), "test_evaluated": False})

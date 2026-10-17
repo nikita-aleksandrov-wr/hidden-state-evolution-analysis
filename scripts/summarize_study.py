@@ -84,6 +84,12 @@ def main():
                "prepare_seconds": round(json.loads((root / "prepare_metadata.json").read_text())["seconds"], 2),
                "extraction_seconds": round(json.loads((root / "extract_metadata.json").read_text())["seconds"], 2),
                "sum_group_seconds_not_parallel_wall_time": round(sum(g["seconds"] for g in groups), 2)}
+    precision_path = root / "precision_check/complete.json"
+    if precision_path.exists():
+        precision = json.loads(precision_path.read_text())
+        summary.update(precision_check_cases=precision["cases"],
+                       sampled_fp16_states_reproduced=precision["all_fp16_roundtrips_identical"],
+                       fp16_r2_change_below_0_001=precision["max_absolute_r2_change"] < .001)
     save_json(output / "run_summary.json", summary)
     plot_results(output, cfg, real, summaries, random_rows, depth, mean_depth, analogs, long_rows, transfer_rows)
     table = "\n".join(f"| {dataset} | {score(dataset, 'ridge_direct', 1)['r2']:.3f} | {score(dataset, 'mlp_direct', 1)['r2']:.3f} | {score(dataset, 'ridge_direct', 4)['r2']:.3f} | {score(dataset, 'mlp_direct', 4)['r2']:.3f} |" for dataset in real)
@@ -96,6 +102,8 @@ def main():
 Compared chronological and whole-series holdouts, horizons 1–64, three random
 initializations, three MLP seeds, history inputs, depth maps and raw-window analogs.
 Frozen one-step models were also rolled forward for 128/256 steps.
+One analysis step advances a 512-sample context by 16 observations; adjacent
+contexts share 496 samples. These scores concern hidden states, not raw forecasts.
 
 ## R² on unseen validation series
 
@@ -143,7 +151,8 @@ so their shorter-horizon scores are separate from the main k=64 comparison.
 [Protocol and reproduction](../../docs/study_protocol.md).
 
 20 tests and the artifact audit passed. The GPU ridge solver agrees with an
-independent scikit-learn SVD fit. Precise scores, states, fits and logs stay outside Git.
+independent scikit-learn SVD fit. Ten fixed FP32/FP16 sensitivity cases changed
+R² by less than 0.001. Precise scores, states, fits and logs stay outside Git.
 """
     (output / "README.md").write_text(text, encoding="utf-8")
     save_json(evaluation / "report_metadata.json", {"source": source_record(repo), "output": str(output), "test_evaluated": False})
