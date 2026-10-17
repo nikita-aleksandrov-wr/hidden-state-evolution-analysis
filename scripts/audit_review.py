@@ -18,7 +18,7 @@ def main():
     counts = {}
     for folder, expected in (("remaining_baselines", 10), ("neural_ode", 6),
                              ("residual_training", 3), ("ode_full_rollouts", 3),
-                             ("ablations/evaluations", 244), ("control_mlp", 4)):
+                             ("ablations/evaluations", 244), ("control_mlp", 4), ("ode_resolution", 6)):
         paths = sorted((root / folder).glob("*/complete.json"))
         assert len(paths) == expected, (folder, len(paths), expected)
         counts[folder] = len(paths)
@@ -87,7 +87,9 @@ def main():
             baseline = json.loads((root / "remaining_baselines" / case / "run_metadata.json").read_text())
             ode = json.loads((root / "neural_ode" / case / "run_metadata.json").read_text())
             dense = json.loads((root / "ode_interpolation" / case / "run_metadata.json").read_text())
+            refined = json.loads((root / "ode_resolution" / case / "run_metadata.json").read_text())
             assert baseline["anchor_sha256"] == ode["anchor_sha256"] == dense["anchor_sha256"]
+            assert refined["anchor_sha256"] == baseline["anchor_sha256"] and not refined["refitted"]
             assert 0 <= dense["coarse_state_fp16_value_match_fraction"] <= 1
             for path in (root / "ode_interpolation" / case).glob("*_dense.npz"):
                 series = path.stem.removesuffix("_dense")

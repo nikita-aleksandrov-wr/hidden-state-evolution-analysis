@@ -73,9 +73,16 @@ def main():
     baseline = load("common_64", root / "remaining_baselines/summary.json")
     ode = load("ode_64", root / "neural_ode/summary.json")
     long = load("common_256", root / "ode_full_rollouts/summary.json")
+    resolution = mean_rows(read(root / "ode_resolution/metrics.json"),
+        ["dataset", "protocol", "model", "section", "substeps", "horizon", "subset"],
+        ["r2", "cosine", "relative_error"])
+    all_rows.extend({**r, "section": "ode_resolution_" + r["section"]} for r in resolution)
     residual = load("residual_256", root / "residual_training/summary.json")
     ablations = load("ablations", root / "ablations/summary.json")
     additional = load("additional", extra / "evaluations/main/summary.json")
+    transfer = mean_rows(read(extra / "frozen_transfer/metrics.json"),
+                         ["dataset", "source_dataset", "protocol", "model", "horizon"], ["r2", "cosine"])
+    all_rows.extend({"section": "frozen_transfer", **r} for r in transfer)
     dense_path = root / "ode_interpolation/metrics.json"
     dense = mean_rows(read(dense_path), ["dataset", "protocol", "model", "subset"], ["relative_error", "r2", "cosine"])
     all_rows.extend({"section": "interpolation", "horizon": 4, **r} for r in dense)
@@ -87,8 +94,17 @@ def main():
                      ["dataset", "condition", "protocol", "representation"],
                      ["mean_relative_adjacent_jump", "lag1_cosine"])
     all_rows.extend({"section": "native_description", "model": r["representation"], **r} for r in desc)
-    columns = ["section", "dataset", "protocol", "condition", "model", "horizon", "subset",
-               "r2", "cosine", "relative_error", "n_series", "n_seeds", "comparison",
+    standardized = []
+    for row in read(root / "research_controls/descriptive.json"):
+        if row["split"] == "val" and row["representation"] in ("hidden", "observed_patch"):
+            seasonal_key = next(k for k in row if k.startswith("acf_lag_") and k not in ("acf_lag_1", "acf_lag_4"))
+            standardized.append({**row, "acf_reference_lag": row[seasonal_key]})
+    standardized = mean_rows(standardized, ["dataset", "condition", "protocol", "representation"],
+        ["relative_jump_rms", "jump_energy_gini", "acf_lag_1", "acf_lag_4", "acf_reference_lag"])
+    all_rows.extend({"section": "scaled_description", "model": r["representation"], **r} for r in standardized)
+    columns = ["section", "dataset", "source_dataset", "protocol", "condition", "model", "horizon", "subset",
+               "r2", "cosine", "relative_error", "n_series", "n_seeds", "comparison", "substeps",
+               "relative_jump_rms", "jump_energy_gini", "acf_lag_1", "acf_lag_4", "acf_reference_lag",
                "r2_std_over_seeds", "cosine_std_over_seeds",
                "delta_r2", "delta_cosine", "mean_relative_adjacent_jump", "lag1_cosine",
                "delta_r2_ci_low", "delta_r2_ci_high", "delta_cosine_ci_low", "delta_cosine_ci_high"]
@@ -115,13 +131,13 @@ def main():
         interpolation.append([LABELS.get(dataset, dataset)] +
             [lookup(dense, dataset, method, subset="all_future")["relative_error"]
              for method in ("ridge_recursive_linear_bridge", "neural_ode")] +
-            [lookup(dense, dataset, method, subset="interior")["relative_error"]
-             for method in ("ridge_recursive_linear_bridge", "neural_ode")])
+            [lookup(resolution, dataset, "neural_ode", 4, section="dense", substeps=16,
+                    subset="all_future")["relative_error"]])
     table(paper / "interpolation_results.tex",
-          ["Dataset", "Ridge all", "ODE all", "Ridge interior", "ODE interior"], interpolation)
-    table(paper / "long_results.tex", ["Dataset", "Ridge", "ODE", "Residual(1)", "Residual(8)"],
+          ["Dataset", "Ridge", "ODE $dt=1/4$", "ODE $dt=1/16$"], interpolation)
+    table(paper / "long_results.tex", ["Dataset", "Ridge", "ODE $dt=1$", "ODE $dt=1/16$"],
           [[LABELS.get(d, d), lookup(long, d, "ridge_original", 256)["r2"], lookup(long, d, "neural_ode", 256)["r2"],
-            lookup(residual, d, "residual_training1", 256)["r2"], lookup(residual, d, "residual_training8", 256)["r2"]]
+            lookup(resolution, d, "neural_ode", 256, section="long", substeps=16)["r2"]]
            for d in DATASETS])
     table(paper / "reduced_results.tex", ["Dataset", "PCs", "DMD $k=1$", "VAR(8) $k=1$", "DMD $k=4$", "VAR(8) $k=4$"],
           [[LABELS.get(d, d), read(root / "remaining_baselines" / f"{d}_out_of_series/pca.json")["rank"]] +
@@ -151,6 +167,9 @@ def main():
                ("residual_training1", "Residual (1)", residual),
                ("residual_training8", "Residual (8)", residual),
                ("ridge_radius_0.99", r"Ridge $\rho\leq0.99$", residual)]
+    fine_long = [{**r, "model": "neural_ode_fine"} for r in resolution
+                 if r["section"] == "long" and r["substeps"] == 16]
+    methods.append(("neural_ode_fine", "ODE dt=1/16", fine_long))
     for ax, d in zip(axes, DATASETS):
         for method, label, rows in methods:
             values = sorted([r for r in rows if r["dataset"] == d and r["model"] == method], key=lambda r: r["horizon"])
@@ -159,8 +178,8 @@ def main():
         ax.set(xscale="log", yscale="log", xlabel="Analysis steps (16 observations each)", title=LABELS.get(d, d))
         ax.grid(alpha=.18)
     axes[0].set_ylabel(r"$1-\mathrm{macro}\ R^2$ (lower is better)")
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=5, frameon=False)
-    fig.tight_layout(rect=(0, .12, 1, 1))
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=3, frameon=False)
+    fig.tight_layout(rect=(0, .2, 1, 1))
     fig.savefig(output / "long_rollouts.png")
     plt.close(fig)
     fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.2))
@@ -203,10 +222,27 @@ def main():
     fig.tight_layout(rect=(0, .055, 1, 1))
     fig.savefig(output / "horizons.png")
     plt.close(fig)
+    from matplotlib.colors import LogNorm
+    targets = ["Thomas", "Aizawa", "solar", "electricity_extra"]
+    matrix = np.array([[lookup(transfer, d, "ridge_direct", source_dataset=s)["r2"] for s in DATASETS] for d in targets])
+    fig, ax = plt.subplots(figsize=(6.7, 3.1))
+    norm = LogNorm(vmin=max(1e-4, float((1 - matrix).min())), vmax=float((1 - matrix).max()))
+    chart = ax.imshow(1 - matrix, cmap="viridis_r", norm=norm, aspect="auto")
+    for row in range(4):
+        for col in range(3):
+            ax.text(col, row, f"{matrix[row, col]:.3f}", ha="center", va="center",
+                    color="white" if norm(1 - matrix[row, col]) > .52 else "black")
+    ax.set(xticks=range(3), xticklabels=[LABELS.get(d, d) for d in DATASETS],
+           yticks=range(4), yticklabels=[LABELS.get(d, d) for d in targets],
+           xlabel="Frozen source map", ylabel="Unseen target dataset", title=r"One-step cross-dataset validation $R^2$")
+    fig.colorbar(chart, ax=ax, label=r"Color: $1-R^2$ (log scale)")
+    fig.tight_layout()
+    fig.savefig(output / "transfer.png")
+    plt.close(fig)
     facts = {"primary_class": selection, "short_results": short, "dense_results": interpolation,
              "input_sha256": sources, "test_evaluated": False}
     (paper / "facts.json").write_text(json.dumps(facts, indent=2) + "\n")
-    print("Built", len(all_rows), "rounded metric rows, seven tables and three figures")
+    print("Built", len(all_rows), "rounded metric rows, seven tables and four figures")
 
 
 if __name__ == "__main__":

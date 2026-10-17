@@ -3,10 +3,12 @@
 Research code for forecasting hidden states of frozen Chronos-2 on chaotic,
 seasonal and control time series.
 
-Start with the [latest results](results/study_20261017/README.md) and
+Start with the [review results](results/review_20261017/README.md) and
 [conclusions](docs/conclusions.md). The [study protocol](docs/study_protocol.md)
 defines the comparisons; [data notes](docs/data.md) explain the inputs.
-The [first baseline](results/checkpoint_20261011/README.md) remains available.
+The [first baseline](results/checkpoint_20261011/README.md) and
+[initial multi-series study](results/study_20261017/README.md) remain available.
+The [review protocol](docs/review_protocol.md) covers the subsequent experiments.
 
 ## Setup
 

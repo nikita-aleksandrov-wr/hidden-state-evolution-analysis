@@ -1,16 +1,15 @@
-# Next experiments
+# Remaining work
 
-1. Strengthen H2 so that a constant mean on white noise cannot satisfy the claimed
-   evidence. Agree on the interpretation before final test scoring.
-2. Compare nonlinear predictors with and without history at matched capacity.
-   Add a past-observation input control to separate state sufficiency from readout limitations.
-3. Test context length, layer choice and sampling scale. Investigate why random
-   states are easy to predict and how much shared input history explains the scores.
-4. Expand whole-series/system holdouts beyond four validation series per dataset.
-   Add more varied chaotic systems and seasonal domains.
-5. Compare stable/reduced-rank maps and multi-step training objectives for long
-   rollouts. Consider Neural ODEs after they have a clear advantage to test.
-6. Freeze the protocol, then evaluate the reserved test partitions once.
+The [review snapshot](../results/review_20261017/README.md) includes the planned
+baseline ladder, memory/observation inputs, ODE, long forecasts, additional
+datasets and architecture/data controls.
 
-Completed experiments and their limitations are in the
-[results](../results/study_20261017/README.md).
+1. Review the manuscript and confirm individual contributions and course formatting.
+2. Freeze final selection and interpretation rules before opening test data.
+   Preserve the declared H1/H2 thresholds and report their specificity limits.
+3. Evaluate the reserved test partitions once. They are not part of this snapshot.
+4. Use peer-review feedback to prioritize one decisive follow-up. A second
+   pretrained architecture and richer continuous fields remain optional extensions.
+
+The evidence supports short-horizon hidden-state prediction. It does not
+establish a universal linear, Markov or continuous law.

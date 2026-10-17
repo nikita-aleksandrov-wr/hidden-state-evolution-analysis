@@ -31,8 +31,10 @@ def main():
             for protocol in ("in_series", "out_of_series"):
                 path = output / f"{condition}_{dataset['name']}_{protocol}_descriptive.json"
                 if path.exists():
-                    descriptions.extend(json.loads(path.read_text()))
-                    continue
+                    cached = json.loads(path.read_text())
+                    if any(r["representation"] == "depth_transition_native" for r in cached):
+                        descriptions.extend(cached)
+                        continue
                 group, _ = load_group(cfg, registry, root, dataset["name"], condition, protocol)
                 values = descriptive_statistics(group, dataset.get("season_raw", 128))
                 for split, part in group.items():
@@ -46,6 +48,17 @@ def main():
                                 "mean_relative_adjacent_jump": float(np.mean(np.linalg.norm(b - a, axis=1) / denominator)),
                                 "lag1_cosine": float(np.mean(np.sum(a * b, axis=1) /
                                                            (denominator * np.linalg.norm(b, axis=1).clip(1e-12))))})
+                        a, b = part["x"][mask], part["depth"][mask]
+                        energy = np.square(b - a).mean(0)
+                        ordered = np.sort(energy)
+                        gini = float((2 * np.arange(1, len(ordered) + 1) - len(ordered) - 1) @ ordered
+                                     / (len(ordered) * ordered.sum()))
+                        norm_a, norm_b = np.linalg.norm(a, axis=1).clip(1e-12), np.linalg.norm(b, axis=1).clip(1e-12)
+                        values.append({"series_id": str(series), "split": split, "representation": "depth_transition_native",
+                            "mean_relative_adjacent_jump": float(np.mean(np.linalg.norm(b - a, axis=1) / norm_a)),
+                            "lag1_cosine": float(np.mean(np.sum(a * b, axis=1) / (norm_a * norm_b))),
+                            "jump_energy_gini": gini,
+                            "acf_note": "Only blocks 5 and 6 are paired; depth ACF at lag 4 is not defined."})
                 values = [{"dataset": dataset["name"], "condition": condition, "protocol": protocol, **v} for v in values]
                 save_json(path, values)
                 descriptions.extend(values)
