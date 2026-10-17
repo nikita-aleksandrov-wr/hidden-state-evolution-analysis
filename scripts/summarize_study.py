@@ -87,7 +87,9 @@ def main():
     save_json(output / "run_summary.json", summary)
     plot_results(output, cfg, real, summaries, random_rows, depth, mean_depth, analogs, long_rows, transfer_rows)
     table = "\n".join(f"| {dataset} | {score(dataset, 'ridge_direct', 1)['r2']:.3f} | {score(dataset, 'mlp_direct', 1)['r2']:.3f} | {score(dataset, 'ridge_direct', 4)['r2']:.3f} | {score(dataset, 'mlp_direct', 4)['r2']:.3f} |" for dataset in real)
-    long_table = "\n".join(f"| {dataset} | {long_score(dataset, 'ridge_recursive', 256).get('r2', float('nan')):.3f} | {long_score(dataset, 'mlp_recursive', 256).get('r2', float('nan')):.3f} |" for dataset in real)
+    def rounded(value):
+        return f"{0.0 if abs(value) < .0005 else value:.3f}"
+    long_table = "\n".join(f"| {dataset} | {rounded(long_score(dataset, 'ridge_recursive', 256).get('r2', float('nan')))} | {rounded(long_score(dataset, 'mlp_recursive', 256).get('r2', float('nan')))} |" for dataset in real)
     text = f"""# Multi-series results — 17 October 2026
 
 46 development series: Lorenz, Rossler, electricity, AR(1) and white noise.
@@ -232,9 +234,11 @@ def plot_results(output, cfg, datasets, summaries, random_rows, depth, mean_dept
         ax.set_yticks(range(len(datasets)), datasets)
         ax.set(title=f"Direct ridge, k={k}", xlabel="Evaluation dataset")
     axes[0].set_ylabel("Fit dataset")
-    fig.colorbar(graphic, ax=axes, shrink=.65, label="R²; colors saturate outside [-1, 1]", pad=.02)
     fig.suptitle("Frozen readout transfer: source scaler and weights unchanged")
-    fig.subplots_adjust(left=.08, right=.86, bottom=.22, top=.83, wspace=.35)
+    fig.subplots_adjust(left=.1, right=.84, bottom=.25, top=.83, wspace=.45)
+    color_axis = fig.add_axes([.89, .28, .018, .46])
+    fig.colorbar(graphic, cax=color_axis, label="R²", extend="min")
+    fig.text(.5, .03, "Color scale saturates outside [-1, 1]; cell labels show the actual scores.", ha="center", fontsize=9)
     fig.savefig(output / "transfer.png", dpi=180)
     plt.close(fig)
 
