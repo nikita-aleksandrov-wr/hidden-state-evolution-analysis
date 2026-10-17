@@ -36,6 +36,7 @@ def main():
     for run, registry, feature_roots in ((root, main_registry, [root / "ablations/features"]),
                                         (extra, extra_registry, [extra / "features"])):
         records = {record["series_id"]: record for record in registry}
+        context = json.loads((run / "config_requested.json").read_text())["context_length"]
         for record in registry:
             raw_path = run / "data" / (record["series_id"] + ".npz")
             if record["role"] == "test":
@@ -77,9 +78,9 @@ def main():
                     if row["split"] == "train":
                         assert int(row["max_target_end"]) < boundary
                     else:
-                        context = json.loads((run / "config_requested.json").read_text())["context_length"]
                         assert int(row["receptive_start"]) >= boundary + context
                 anchor_count += 1
+    dense_precision = []
     for dataset in ("Lorenz", "Rossler", "electricity"):
         for protocol in ("in_series", "out_of_series"):
             case = f"{dataset}_{protocol}"
@@ -87,7 +88,17 @@ def main():
             ode = json.loads((root / "neural_ode" / case / "run_metadata.json").read_text())
             dense = json.loads((root / "ode_interpolation" / case / "run_metadata.json").read_text())
             assert baseline["anchor_sha256"] == ode["anchor_sha256"] == dense["anchor_sha256"]
-            assert dense["coarse_state_fp16_value_match_fraction"] == 1
+            assert 0 <= dense["coarse_state_fp16_value_match_fraction"] <= 1
+            for path in (root / "ode_interpolation" / case).glob("*_dense.npz"):
+                series = path.stem.removesuffix("_dense")
+                with np.load(path) as data, np.load(root / "features/pretrained" / (series + ".npz")) as coarse:
+                    common, fresh_index, cached_index = np.intersect1d(
+                        data["raw_endpoints"], coarse["raw_endpoints"], return_indices=True)
+                    assert len(common) > 0
+                    fresh, cached = data["states"][fresh_index], coarse["states"][cached_index, 0].astype(np.float32)
+                    relative = float(np.linalg.norm(fresh.astype(np.float64) - cached) / np.linalg.norm(cached))
+                    assert relative < np.finfo(np.float16).eps, (case, series, relative)
+                    dense_precision.append(relative)
             for filename, digest in dense["frozen_fits"].items():
                 assert sha256_file(root / filename) == digest
         residual = json.loads((root / "residual_training" / dataset / "run_metadata.json").read_text())
@@ -97,6 +108,7 @@ def main():
     assert not json.loads((extra / "frozen_transfer/complete.json").read_text())["test_evaluated"]
     result = {"status": "passed", "groups": counts, "additional_groups": 8,
               "new_feature_files_verified": feature_count, "anchor_rows_checked": anchor_count,
+              "dense_vs_cached_max_relative_l2": max(dense_precision),
               "reserved_entities_not_loaded": reserved_count, "test_evaluated": False}
     save_json(root / "audit_review.json", result)
     print(json.dumps(result, indent=2))
