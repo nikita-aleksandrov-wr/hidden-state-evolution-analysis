@@ -136,8 +136,8 @@ class ExtendedModelsTests(unittest.TestCase):
         cfg = {"width": 8, "epochs": 2, "patience": 2, "batch_size": 8, "learning_rate": .001,
                "weight_decay": .0001, "segment_steps": 4, "rk4_substeps": 1}
         fit = fit_ode(train, val, cfg, 12, "cpu")
-        cfg.update(segment_steps=1, selection_horizon=4, integration_method="euler")
-        discrete_fit = fit_ode(train, val, cfg, 12, "cpu")
+        discrete_cfg = dict(cfg, segment_steps=1, selection_horizon=4, integration_method="euler")
+        discrete_fit = fit_ode(train, val, discrete_cfg, 12, "cpu")
         self.assertEqual(fit["parameters"], discrete_fit["parameters"])
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "own_model.pt"
