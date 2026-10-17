@@ -20,15 +20,21 @@ def prepare_ridge(x, device):
             "values": eigenvalues.clamp_min(0), "vectors": eigenvectors}
 
 
-def fit_ridge(prepared, y, alpha):
+def ridge_statistics(prepared, y):
     import torch
 
-    if alpha <= 0:
-        raise ValueError("Ridge alpha must be positive")
     y = torch.as_tensor(y, dtype=torch.float64, device=prepared["x"].device)
     mean = y.mean(dim=0)
     q = prepared["vectors"]
     projected = q.T @ (prepared["x"].T @ (y - mean))
+    return mean, projected
+
+
+def fit_ridge(prepared, y, alpha, statistics=None):
+    if alpha <= 0:
+        raise ValueError("Ridge alpha must be positive")
+    mean, projected = ridge_statistics(prepared, y) if statistics is None else statistics
+    q = prepared["vectors"]
     coefficient = (q @ (projected / (prepared["values"][:, None] + alpha))).T
     return {"coef": coefficient, "intercept": mean - coefficient @ prepared["z_mean"],
             "mean": prepared["mean"], "scale": prepared["scale"]}
@@ -43,12 +49,18 @@ def predict_ridge(model, x):
                 + model["intercept"]).cpu().numpy()
 
 
-def select_ridge(prepared, y, x_val, y_val, alphas):
+def select_ridge(prepared, y, x_val, y_val, alphas, series_ids=None):
     reference = np.asarray(y, dtype=np.float64).mean(axis=0)
     best, table = None, []
+    statistics = ridge_statistics(prepared, y)
     for alpha in alphas:
-        model = fit_ridge(prepared, y, alpha)
-        scores = prediction_metrics(y_val, predict_ridge(model, x_val), reference)
+        model = fit_ridge(prepared, y, alpha, statistics)
+        prediction = predict_ridge(model, x_val)
+        scores = prediction_metrics(y_val, prediction, reference)
+        if series_ids is not None:
+            individual = [prediction_metrics(y_val[series_ids == series], prediction[series_ids == series], reference)
+                          for series in np.unique(series_ids)]
+            scores = {metric: float(np.mean([row[metric] for row in individual])) for metric in ("r2", "cosine")}
         table.append({"alpha": alpha, **scores})
         if best is None or (scores["r2"], -alpha) > (best[0], -best[1]):
             best = (scores["r2"], alpha, model)
@@ -87,7 +99,7 @@ def save_ridge(path, model):
     np.savez_compressed(path, **{name: value.detach().cpu().numpy() for name, value in model.items()})
 
 
-def fit_mlp(x, y, x_val, y_val, cfg, seed, device):
+def fit_mlp(x, y, x_val, y_val, cfg, seed, device, series_ids=None):
     import copy
     import torch
 
@@ -109,6 +121,9 @@ def fit_mlp(x, y, x_val, y_val, cfg, seed, device):
     best_loss, best_epoch, best_state, history = float("inf"), 0, None, []
     weights = ys.square()
     weights = weights / weights.mean()
+    selections = ([torch.as_tensor(np.flatnonzero(series_ids == series), device=device)
+                   for series in np.unique(series_ids)] if series_ids is not None else None)
+    denominators = [(vy[index] - ym).square().sum() for index in selections] if selections is not None else None
     for epoch in range(cfg["epochs"]):
         model.train()
         order = torch.randperm(len(tx), device=device)
@@ -119,8 +134,11 @@ def fit_mlp(x, y, x_val, y_val, cfg, seed, device):
             optimizer.step()
         model.eval()
         with torch.inference_mode():
-            validation_loss = float((model(vx) * ys + ym - vy).square().mean())
-        history.append({"epoch": epoch + 1, "validation_mse": validation_loss})
+            error = (model(vx) * ys + ym - vy).square()
+            validation_loss = (float(torch.stack([error[index].sum() / denominator
+                                                 for index, denominator in zip(selections, denominators)]).mean())
+                               if selections is not None else float(error.mean()))
+        history.append({"epoch": epoch + 1, "validation_loss": validation_loss})
         if validation_loss < best_loss:
             best_loss, best_epoch, best_state = validation_loss, epoch + 1, copy.deepcopy(model.state_dict())
         if epoch + 1 - best_epoch >= cfg["patience"]:

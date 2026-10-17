@@ -1,6 +1,7 @@
-import copy
+import json
 import sys
 import unittest
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -10,9 +11,56 @@ from sklearn.preprocessing import StandardScaler
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mosd_hidden_dynamics.study_models import fit_mlp, fit_ridge, predict_mlp, predict_ridge, prepare_ridge, rollout_ridge
 from mosd_hidden_dynamics.study_data import causal_prefix, study_pairs
+from mosd_hidden_dynamics.study import aggregate_results, depth_comparison, load_group
+from mosd_hidden_dynamics.utils import sha256_file
 
 
 class StudyModelTests(unittest.TestCase):
+    def test_new_series_holdout_and_all_horizons_use_the_same_anchors(self):
+        rng = np.random.default_rng(49)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "features/pretrained").mkdir(parents=True)
+            (root / "data").mkdir()
+            registry = []
+            for series, role in (("a", "train"), ("b", "val")):
+                path = root / "data" / (series + ".npz")
+                np.savez(path, observed=rng.normal(size=4096).astype(np.float32))
+                record = {"series_id": series, "dataset": "synthetic", "role": role, "length": 4096,
+                          "test_start": 3276, "data_sha256": sha256_file(path)}
+                registry.append(record)
+                ends = np.arange(15, 3276, 16)
+                states = np.stack([np.tile(ends[:, None], (1, 3)), np.tile(ends[:, None], (1, 3)) + 1], axis=1)
+                feature = root / "features/pretrained" / (series + ".npz")
+                np.savez(feature, states=states, raw_endpoints=ends)
+                feature.with_suffix(".json").write_text(json.dumps({"sha256": sha256_file(feature),
+                    "data_sha256": record["data_sha256"], "test_states_extracted": False, "future_values_supplied": False}))
+            registry.append({"series_id": "reserved", "dataset": "synthetic", "role": "test"})
+            group, manifest = load_group({"context_length": 16, "horizons": [1, 4]}, registry, root, "synthetic", "pretrained", "out_of_series")
+            self.assertEqual(set(group["train"]["ids"]), {"a"})
+            self.assertEqual(set(group["val"]["ids"]), {"b"})
+            for split in group.values():
+                np.testing.assert_array_equal(split["y4"] - split["x"], 64)
+                np.testing.assert_array_equal(split["y1"] - split["x"], 16)
+            self.assertNotIn("reserved", {row["series_id"] for row in manifest})
+
+    def test_bootstrap_pairs_series_and_averages_seeds_before_series(self):
+        rows = []
+        for series in ("a", "b", "c"):
+            common = {"dataset": "example", "protocol": "out_of_series", "condition": "pretrained",
+                      "horizon": 1, "series_id": series, "centered_cosine": .3}
+            rows.extend([{**common, "model": "persistence", "seed": None, "r2": .1, "cosine": .2},
+                         {**common, "model": "ridge_depth", "seed": None, "r2": .2, "cosine": .3},
+                         {**common, "model": "ridge_direct", "seed": None, "r2": .8, "cosine": .9}])
+            for seed, score in ((1, .7), (2, .9)):
+                rows.append({**common, "model": "mlp_direct", "seed": seed, "r2": score, "cosine": .9})
+        summaries = aggregate_results(rows, 100, 50)
+        mlp = next(r for r in summaries if r["model"] == "mlp_direct")
+        self.assertAlmostEqual(mlp["r2"], .8)
+        self.assertAlmostEqual(mlp["delta_r2_ci_low"], .7)
+        self.assertEqual(mlp["n_seeds"], 2)
+        self.assertTrue(depth_comparison(rows, 100, 50)[0]["local_threshold_met"])
+
     def test_missing_values_are_filled_only_from_the_past(self):
         values = np.array([np.nan, 2., np.nan, 5., np.nan, 9.])
         observed, offset, count = causal_prefix(values, 5)
