@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mosd_hidden_dynamics.study_models import fit_mlp, fit_ridge, predict_mlp, predict_ridge, prepare_ridge, rollout_ridge
-from mosd_hidden_dynamics.study_models import nearest_indices
+from mosd_hidden_dynamics.study_models import load_mlp, nearest_indices
 from mosd_hidden_dynamics.study_data import causal_prefix, study_pairs
 from mosd_hidden_dynamics.study import aggregate_results, depth_comparison, load_group
 from mosd_hidden_dynamics.utils import sha256_file
@@ -133,6 +133,14 @@ class StudyModelTests(unittest.TestCase):
         np.testing.assert_allclose(first["x_mean"], x.mean(axis=0))
         np.testing.assert_allclose(first["y_mean"], y.mean(axis=0))
         self.assertLess(np.square(predict_mlp(first, val) - target).mean(), np.square(y.mean(axis=0) - target).mean() * 0.1)
+        with tempfile.TemporaryDirectory() as temp:
+            for tensors in (False, True):
+                saved = {"state_dict": first["model"].state_dict(), "config": cfg}
+                for name in ("x_mean", "x_scale", "y_mean", "y_scale"):
+                    saved[name] = torch.from_numpy(first[name]) if tensors else first[name]
+                path = Path(temp) / "model.pt"
+                torch.save(saved, path)
+                np.testing.assert_array_equal(predict_mlp(load_mlp(path, "cpu"), val), predict_mlp(first, val))
 
 
 if __name__ == "__main__":
