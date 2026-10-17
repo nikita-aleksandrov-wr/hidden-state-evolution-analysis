@@ -21,14 +21,21 @@ class ExtendedModelsTests(unittest.TestCase):
         model = Chronos2Model(config).eval()
         observed = np.random.default_rng(20).normal(size=64).astype(np.float32)
         before = extract_vectors(model, observed, np.array([31, 39]), [0, 1], 32, 2)
+        positions = []
+        handle = model.encoder.block[0].layer[0].self_attention.register_forward_pre_hook(
+            lambda module, args, kwargs: positions.append(kwargs["position_ids"].detach().cpu().numpy().copy()),
+            with_kwargs=True)
         shuffled = extract_variant(model, observed, np.array([31, 39]), 32, 2, [0, 1], 2026)
         altered = observed.copy()
         altered[40:] = 10000
         repeated = extract_variant(model, altered, np.array([31, 39]), 32, 2, [0, 1], 2026)
+        handle.remove()
         after = extract_vectors(model, observed, np.array([31, 39]), [0, 1], 32, 2)
         np.testing.assert_array_equal(before, after)
         np.testing.assert_array_equal(shuffled, repeated)
-        self.assertGreater(np.max(np.abs(shuffled[:, :2] - before)), 1e-6)
+        np.testing.assert_array_equal(np.sort(positions[0][0, :8]), np.arange(8))
+        np.testing.assert_array_equal(positions[0][0, 8:], [8, 9])
+        self.assertFalse(np.array_equal(positions[0][0, :8], np.arange(8)))
         self.assertEqual(shuffled.shape, (2, 3, 8))
 
     def test_context_ablations_share_endpoints_and_preserve_entity_holdout(self):
