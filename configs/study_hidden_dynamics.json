@@ -1,0 +1,34 @@
+{
+  "seed": 2026,
+  "threads": 4,
+  "baseline_config": "configs/baseline_chronos2_lorenz.json",
+  "trajectory_length": 32768,
+  "context_length": 512,
+  "horizons": [1, 4, 8, 16, 32, 64],
+  "batch_size": 64,
+  "random_init_seeds": [2026, 2027, 2028],
+  "shuffled_seeds": 20,
+  "bootstrap_samples": 2000,
+  "near_duplicate_cosine": 0.999,
+  "mlp": {
+    "width": 256,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "epochs": 100,
+    "patience": 15,
+    "batch_size": 512,
+    "seeds": [2026, 2027, 2028],
+    "horizons": [1, 4]
+  },
+  "datasets": [
+    {"name": "Lorenz", "family": "chaotic", "n_train": 8, "n_val": 4, "n_test": 4,
+     "initial_condition": [1.0, 1.0, 1.0]},
+    {"name": "Rossler", "family": "chaotic", "n_train": 8, "n_val": 4, "n_test": 4,
+     "initial_condition": [6.5134412, 0.4772013, 0.34164294]},
+    {"name": "electricity", "family": "seasonal", "n_train": 8, "n_val": 4, "n_test": 4,
+     "repo_id": "Salesforce/GiftEval", "revision": "30841734ac5cfddbd0c3bad6d09d2b6b32becbb0",
+     "filename": "electricity/15T/data-00000-of-00001.arrow", "season_raw": 96},
+    {"name": "AR1", "family": "control", "n_train": 3, "n_val": 2, "n_test": 1, "phi": 0.9},
+    {"name": "white_noise", "family": "control", "n_train": 3, "n_val": 2, "n_test": 1, "phi": 0.0}
+  ]
+}

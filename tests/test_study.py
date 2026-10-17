@@ -9,9 +9,32 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mosd_hidden_dynamics.study_models import fit_mlp, fit_ridge, predict_mlp, predict_ridge, prepare_ridge, rollout_ridge
+from mosd_hidden_dynamics.study_data import causal_prefix, study_pairs
 
 
 class StudyModelTests(unittest.TestCase):
+    def test_missing_values_are_filled_only_from_the_past(self):
+        values = np.array([np.nan, 2., np.nan, 5., np.nan, 9.])
+        observed, offset, count = causal_prefix(values, 5)
+        np.testing.assert_array_equal(observed, [2., 2., 5., 5., 9.])
+        self.assertEqual((offset, count), (1, 2))
+        changed = values.copy()
+        changed[-1] = -100
+        np.testing.assert_array_equal(causal_prefix(changed, 5)[0][:-1], observed[:-1])
+
+    def test_common_anchors_respect_context_memory_horizon_and_test(self):
+        record = {"role": "val", "length": 32768, "test_start": int(32768 * .8)}
+        ends = np.arange(511, record["test_start"], 16)
+        pairs = study_pairs(ends, record, 512, 64, "in_series")
+        for split, indices in pairs.items():
+            start = 0 if split == "train" else int(32768 * .7) + 512
+            stop = int(32768 * .7) if split == "train" else record["test_start"]
+            self.assertTrue(np.all(ends[indices] - 16 - 511 >= start))
+            self.assertTrue(np.all(ends[indices] + 64 * 16 < stop))
+        self.assertEqual(set(study_pairs(ends, record, 512, 64, "out_of_series")), {"val"})
+        with self.assertRaisesRegex(ValueError, "reserved"):
+            study_pairs(ends, {**record, "role": "test"}, 512, 64, "out_of_series")
+
     def test_ridge_matches_sklearn_with_train_only_scaling(self):
         rng = np.random.default_rng(41)
         x, y, val = rng.normal(size=(40, 5)), rng.normal(size=(40, 3)), rng.normal(size=(8, 5)) + 7
