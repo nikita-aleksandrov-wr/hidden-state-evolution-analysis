@@ -46,6 +46,17 @@ class ExtendedModelsTests(unittest.TestCase):
             total = chosen * (width + 768 + 1) + 768
             self.assertLess(abs(total - original) / original, .004)
 
+    def test_rk4_matches_linear_flow_and_supports_gradients(self):
+        import torch
+        from mosd_hidden_dynamics.neural_ode import advance
+        coefficient = torch.nn.Parameter(torch.tensor(-.3, dtype=torch.float64))
+        x = torch.tensor([[1., 2.]], dtype=torch.float64)
+        actual = advance(lambda z: coefficient * z, x, duration=2., substeps=16)
+        expected = x * np.exp(-.6)
+        torch.testing.assert_close(actual, expected, rtol=1e-8, atol=1e-10)
+        actual.sum().backward()
+        self.assertAlmostEqual(coefficient.grad.item(), float((2 * expected).sum()), places=6)
+
 
 if __name__ == "__main__":
     unittest.main()
