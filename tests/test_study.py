@@ -10,12 +10,21 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from mosd_hidden_dynamics.study_models import fit_mlp, fit_ridge, predict_mlp, predict_ridge, prepare_ridge, rollout_ridge
+from mosd_hidden_dynamics.study_models import nearest_indices
 from mosd_hidden_dynamics.study_data import causal_prefix, study_pairs
 from mosd_hidden_dynamics.study import aggregate_results, depth_comparison, load_group
 from mosd_hidden_dynamics.utils import sha256_file
 
 
 class StudyModelTests(unittest.TestCase):
+    def test_raw_neighbors_use_training_windows_and_ignore_offset_and_scale(self):
+        train = np.random.default_rng(51).normal(size=(12, 16))
+        val = train[[3, 7]] * 2 + 10
+        indices, similarity = nearest_indices(train, val, 5, "cpu")
+        np.testing.assert_array_equal(indices[:, 0], [3, 7])
+        np.testing.assert_allclose(similarity[:, 0], 1, atol=1e-6)
+        self.assertTrue(np.all(indices < len(train)))
+
     def test_new_series_holdout_and_all_horizons_use_the_same_anchors(self):
         rng = np.random.default_rng(49)
         with tempfile.TemporaryDirectory() as temp:

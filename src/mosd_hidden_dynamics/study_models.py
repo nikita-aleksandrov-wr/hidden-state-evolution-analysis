@@ -170,3 +170,39 @@ def rollout_mlp(fit, x, horizons):
         if step in horizons:
             predictions[step] = state.copy()
     return predictions
+
+
+def load_ridge(path, device):
+    import torch
+    with np.load(path) as data:
+        return {name: torch.as_tensor(data[name], dtype=torch.float64, device=device) for name in data.files}
+
+
+def load_mlp(path, device):
+    import torch
+    # These are this study's own checkpoints, including their fitted NumPy scalers.
+    saved = torch.load(path, map_location=device, weights_only=False)
+    model = torch.nn.Sequential(torch.nn.Linear(len(saved["x_mean"]), saved["config"]["width"]), torch.nn.GELU(),
+                                torch.nn.Linear(saved["config"]["width"], len(saved["y_mean"]))).to(device)
+    model.load_state_dict(saved["state_dict"])
+    result = {"model": model.eval()}
+    for name in ("x_mean", "x_scale", "y_mean", "y_scale"):
+        value = saved[name]
+        result[name] = value.cpu().numpy() if isinstance(value, torch.Tensor) else value
+    return result
+
+
+def nearest_indices(train, val, k, device):
+    import torch
+    def normalize(x):
+        x = torch.as_tensor(x, dtype=torch.float32, device=device)
+        x = x - x.mean(dim=1, keepdim=True)
+        return x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    train = normalize(train)
+    all_indices, all_cosines = [], []
+    for start in range(0, len(val), 256):
+        similarity = normalize(val[start:start + 256]) @ train.T
+        values, indices = torch.topk(similarity, k, dim=1)
+        all_indices.append(indices.cpu().numpy())
+        all_cosines.append(values.clamp(-1, 1).cpu().numpy())
+    return np.concatenate(all_indices), np.concatenate(all_cosines)
