@@ -21,10 +21,13 @@ def rk4_step(field, state, dt=1.0):
     return state + dt * (a + 2 * b + 2 * c + d) / 6
 
 
-def advance(field, state, duration=1.0, substeps=1):
+def advance(field, state, duration=1.0, substeps=1, method="rk4"):
+    if method not in ("rk4", "euler"):
+        raise ValueError("Unknown integration method")
     count = max(1, int(np.ceil(duration * substeps)))
     for _ in range(count):
-        state = rk4_step(field, state, duration / count)
+        state = (rk4_step(field, state, duration / count) if method == "rk4"
+                 else state + duration / count * field(state))
     return state
 
 
@@ -39,9 +42,11 @@ def fit_ode(train, val, cfg, seed, device):
     weight = weight / weight.mean()
     model = make_field(train["x"].shape[1], cfg["width"], device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["learning_rate"], weight_decay=cfg["weight_decay"])
-    reference = torch.as_tensor((train["y4"].mean(0) - mean) / scale, dtype=torch.float32, device=device)
+    selection_horizon = cfg.get("selection_horizon", cfg["segment_steps"])
+    validation_target = torch.as_tensor((val[f"y{selection_horizon}"] - mean) / scale, dtype=torch.float32, device=device)
+    reference = torch.as_tensor((train[f"y{selection_horizon}"].mean(0) - mean) / scale, dtype=torch.float32, device=device)
     masks = [torch.as_tensor(np.flatnonzero(val["ids"] == s), device=device) for s in np.unique(val["ids"])]
-    denominator = [((vx[mask, -1] - reference).square() * weight).sum() for mask in masks]
+    denominator = [((validation_target[mask] - reference).square() * weight).sum() for mask in masks]
     best, best_epoch, saved, history = float("inf"), 0, None, []
     for epoch in range(cfg["epochs"]):
         model.train()
@@ -49,7 +54,7 @@ def fit_ode(train, val, cfg, seed, device):
             state = tx[indices, 0]
             loss = 0
             for step in range(1, cfg["segment_steps"] + 1):
-                state = advance(model, state, substeps=cfg["rk4_substeps"])
+                state = advance(model, state, substeps=cfg["rk4_substeps"], method=cfg.get("integration_method", "rk4"))
                 loss = loss + ((state - tx[indices, step]).square() * weight).mean() / cfg["segment_steps"]
             if not bool(torch.isfinite(loss)):
                 raise FloatingPointError("Nonfinite Neural ODE training loss")
@@ -60,9 +65,9 @@ def fit_ode(train, val, cfg, seed, device):
         model.eval()
         with torch.inference_mode():
             state = vx[:, 0]
-            for _ in range(cfg["segment_steps"]):
-                state = advance(model, state, substeps=cfg["rk4_substeps"])
-            error = (state - vx[:, -1]).square() * weight
+            for _ in range(selection_horizon):
+                state = advance(model, state, substeps=cfg["rk4_substeps"], method=cfg.get("integration_method", "rk4"))
+            error = (state - validation_target).square() * weight
             score = float(torch.stack([error[mask].sum() / den for mask, den in zip(masks, denominator)]).mean())
         history.append({"epoch": epoch + 1, "validation_one_minus_macro_r2_k4": score})
         if np.isfinite(score) and score < best:
@@ -98,7 +103,7 @@ def rollout_ode(fit, x, horizons, substeps=None):
     with torch.inference_mode():
         state = torch.as_tensor((x - fit["mean"]) / fit["scale"], dtype=torch.float32, device=device)
         for step in range(1, max(horizons) + 1):
-            state = advance(model, state, substeps=substeps)
+            state = advance(model, state, substeps=substeps, method=fit["config"].get("integration_method", "rk4"))
             if step in horizons:
                 value = state.cpu().numpy().astype(np.float64) * fit["scale"] + fit["mean"]
                 if not np.isfinite(value).all():

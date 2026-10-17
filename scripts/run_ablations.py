@@ -24,7 +24,7 @@ def main():
     from mosd_hidden_dynamics.ablations import extract_ablations, load_ablation_group, variant_specs
     from mosd_hidden_dynamics.extended import series_metrics
     from mosd_hidden_dynamics.study import aggregate_results, descriptive_statistics, write_rows
-    from mosd_hidden_dynamics.study_models import predict_ridge, prepare_ridge, save_ridge, select_ridge
+    from mosd_hidden_dynamics.study_models import fit_ridge, predict_ridge, prepare_ridge, ridge_statistics, save_ridge, select_ridge
     from mosd_hidden_dynamics.utils import save_json, source_record
     torch.set_num_threads(4)
     torch.use_deterministic_algorithms(True)
@@ -100,16 +100,26 @@ def main():
                                                         base["ridge"]["alpha_grid"], val["ids"])
                         predictions.append(("ridge_unscaled", predict_ridge(fit, val["x"])))
                         selections[f"ridge_unscaled_k{k}"] = table
+                        save_ridge(directory / f"ridge_unscaled_k{k}.npz", fit)
                     if calibrated is not None:
-                        fit, alpha, table = select_ridge(calibrated, train[f"zy{k}"], val["z"], val[f"zy{k}"],
-                                                        base["ridge"]["alpha_grid"], val["ids"])
-                        prediction = predict_ridge(fit, val["z"]) * val["calibration_scale"] + val["calibration_mean"]
+                        statistics = ridge_statistics(calibrated, train[f"zy{k}"])
+                        best, table = None, []
+                        for alpha in base["ridge"]["alpha_grid"]:
+                            candidate = fit_ridge(calibrated, train[f"zy{k}"], alpha, statistics)
+                            prediction = predict_ridge(candidate, val["z"]) * val["calibration_scale"] + val["calibration_mean"]
+                            individual = series_metrics(val[f"y{k}"], prediction, reference, val["ids"])
+                            score = float(np.mean([r["r2"] for r in individual]))
+                            table.append({"alpha": alpha, "r2": score})
+                            if best is None or (score, -alpha) > best[:2]:
+                                best = score, -alpha, candidate, prediction
+                        fit, prediction = best[2], best[3]
                         predictions.append(("ridge_prefix_standardized", prediction))
                         selections[f"ridge_prefix_standardized_k{k}"] = table
+                        save_ridge(directory / f"ridge_prefix_standardized_k{k}.npz", fit)
                     for method, prediction in predictions:
                         rows.extend({**common, "model": method, "horizon": k, "seed": None, **r}
                                     for r in series_metrics(val[f"y{k}"], prediction, reference, val["ids"]))
-                descriptions = descriptive_statistics(group, dataset.get("season_raw", 128))
+                descriptions = descriptive_statistics(group, dataset.get("season_raw", 128)) if case["stride"] == 16 else []
                 for split, part in group.items():
                     for series in np.unique(part["ids"]):
                         mask = part["ids"] == series
@@ -129,6 +139,7 @@ def main():
                 save_json(directory / "run_metadata.json", {"source": source, "case": case, "anchor_sha256": digest,
                           "calibration": "first 128 past states per entity; prefix excluded from fitting/evaluation anchors" if case["calibrate"] else None,
                           "stride_warning": "Changing stride changes both overlap and physical prediction horizon.",
+                          "matched_ar1": "Pooled train-only lag1 estimate clipped to [-0.99, 0.99].",
                           "test_evaluated": False})
                 save_json(directory / "complete.json", {"seconds": time.perf_counter() - start, "test_evaluated": False})
                 print("DONE", condition, name, protocol, flush=True)

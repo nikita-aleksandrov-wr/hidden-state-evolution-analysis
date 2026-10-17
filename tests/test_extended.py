@@ -120,6 +120,8 @@ class ExtendedModelsTests(unittest.TestCase):
         torch.testing.assert_close(actual, expected, rtol=1e-8, atol=1e-10)
         actual.sum().backward()
         self.assertAlmostEqual(coefficient.grad.item(), float((2 * expected).sum()), places=6)
+        discrete = advance(lambda z: coefficient * z, x, duration=2., method="euler")
+        torch.testing.assert_close(discrete, x * .49, rtol=1e-12, atol=1e-12)
 
     def test_ode_training_checkpoint_roundtrip(self):
         from pathlib import Path
@@ -134,6 +136,9 @@ class ExtendedModelsTests(unittest.TestCase):
         cfg = {"width": 8, "epochs": 2, "patience": 2, "batch_size": 8, "learning_rate": .001,
                "weight_decay": .0001, "segment_steps": 4, "rk4_substeps": 1}
         fit = fit_ode(train, val, cfg, 12, "cpu")
+        cfg.update(segment_steps=1, selection_horizon=4, integration_method="euler")
+        discrete_fit = fit_ode(train, val, cfg, 12, "cpu")
+        self.assertEqual(fit["parameters"], discrete_fit["parameters"])
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "own_model.pt"
             save_ode(path, fit)
