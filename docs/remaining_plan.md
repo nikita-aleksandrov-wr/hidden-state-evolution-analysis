@@ -1,14 +1,16 @@
 # Next experiments
 
-1. Complete near-duplicate and shuffled-control review. Add raw-series/AR(1)
-   references, autocorrelation and jump-energy statistics; check float16 effects.
-2. Add independent trajectories, more chaotic systems and strongly seasonal
-   GIFT-Eval data. Fix provenance, splits and whole-series/system holdouts.
-3. Add the two-layer MLP and horizons `k=1/4`. Compare ridge and MLP across both
-   families and split protocols using the agreed validation rule.
-4. Test H2 with matched series/depth predictors and 2000 paired series bootstrap
-   samples. Add random-init, layer and preprocessing controls; use three seeds
-   where fitting is stochastic.
-5. Freeze the protocol before final test scoring. Consider post-hoc ODE fitting
-   after these comparisons, evaluating fidelity and rollouts against discrete
-   baselines.
+1. Strengthen H2 so that a constant mean on white noise cannot satisfy the claimed
+   evidence. Agree on the interpretation before final test scoring.
+2. Compare nonlinear predictors with and without history at matched capacity.
+   Add a past-observation input control to separate state sufficiency from readout limitations.
+3. Test context length, layer choice and sampling scale. Investigate why random
+   states are easy to predict and how much shared input history explains the scores.
+4. Expand whole-series/system holdouts beyond four validation series per dataset.
+   Add more varied chaotic systems and seasonal domains.
+5. Compare stable/reduced-rank maps and multi-step training objectives for long
+   rollouts. Consider Neural ODEs after they have a clear advantage to test.
+6. Freeze the protocol, then evaluate the reserved test partitions once.
+
+Completed experiments and their limitations are in the
+[results](../results/study_20261017/README.md).

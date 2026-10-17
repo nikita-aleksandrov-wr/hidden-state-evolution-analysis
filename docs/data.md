@@ -26,3 +26,21 @@ The [trajectory figure](../results/checkpoint_20261011/lorenz_data.png) illustra
 the data. This checkpoint uses the established Lorenz regime; it does not estimate
 a Lyapunov exponent. Run settings are in `configs/`; see the
 [setup and stage commands](../README.md) to regenerate the data.
+
+## Extended study
+
+Rossler uses the same generation procedure, with dysts parameters
+`a=0.2`, `b=0.2`, `c=5.7`. New trajectories use seeded perturbations of the
+declared initial conditions; only coordinate `x` enters Chronos-2.
+
+Electricity comes from the pinned `electricity/15T` configuration of
+[GIFT-Eval](https://huggingface.co/datasets/Salesforce/GiftEval). The first twelve
+entities are development data: MT_001–MT_008 train and MT_009–MT_012 validation
+for the whole-series protocol. Leading missing values are trimmed; internal gaps
+use past-only forward filling. The first 32768 samples after trimming are kept.
+Pretraining overlap is unknown, so these are held-out readout entities, not a
+claim of foundation-model zero-shot evaluation.
+
+AR(1) uses coefficient 0.9 and Gaussian innovations; white noise uses coefficient
+0. Both are controls, with 1024 burn-in samples and recorded seeds.
+See the [study protocol](study_protocol.md) for memberships and evaluation.

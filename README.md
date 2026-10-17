@@ -1,30 +1,30 @@
 # Hidden-state evolution in time series foundation models
 
-The baseline pipeline generates Lorenz data, extracts rolling-context states from
-frozen Chronos-2 and compares ridge with train mean, persistence and shuffled-target
-ridge. Evaluation uses validation only; test data are reserved.
+Research code for forecasting hidden states of frozen Chronos-2 on chaotic,
+seasonal and control time series.
 
-Start with the [results](results/checkpoint_20261011/README.md). The
-[protocol](docs/experiment_protocol.md) explains the experiment,
-[data notes](docs/data.md) define Lorenz and chaos, and the
-[conclusions](docs/conclusions.md) and [next steps](docs/remaining_plan.md)
-connect this checkpoint to the project.
+Start with the [latest results](results/study_20261017/README.md) and
+[conclusions](docs/conclusions.md). The [study protocol](docs/study_protocol.md)
+defines the comparisons; [data notes](docs/data.md) explain the inputs.
+The [first baseline](results/checkpoint_20261011/README.md) remains available.
 
 ## Setup
 
-Verified on Linux with Python 3.12 and CUDA 12.8. Place this repository in
-`project/code/`, then run from `project/`:
+Verified on Linux with Python 3.12 and CUDA 12.8:
 
 ```bash
+git clone https://github.com/nikita-aleksandrov-wr/hidden-state-evolution-analysis project/code
+cd project
 python3.12 -m venv .venv
 .venv/bin/python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 .venv/bin/python -m pip install -r code/requirements.txt
 .venv/bin/python -m pip check
+cd code
 ```
 
-## Run
+## Smoke run
 
-From `project/code/`:
+Use an allocated GPU and a fresh run ID:
 
 ```bash
 ../.venv/bin/python -m unittest discover -s tests -v
@@ -33,23 +33,32 @@ From `project/code/`:
 ../.venv/bin/python scripts/audit_run.py --run-dir ../artifacts/example_smoke
 ```
 
-For the baseline, replace the config with `configs/baseline_chronos2_lorenz.json`
-and choose a new run ID. Use an allocated GPU. The first run downloads model
-weights; subsequent runs use the cache.
+Use `configs/baseline_chronos2_lorenz.json` for the original baseline.
+Its [protocol](docs/experiment_protocol.md) documents state extraction and metrics.
 
-To execute stages separately, use `--stage prepare`, then `--stage extract`, then
-`--stage baseline`, keeping the same run ID and config. Source changes require a
-new run ID.
+## Extended study
+
+The study downloads the selected electricity data and caches model states:
+
+```bash
+../.venv/bin/python scripts/run_study.py --run-id example_study --stage prepare --device cuda:0
+../.venv/bin/python scripts/run_study.py --run-id example_study --stage extract --device cuda:0
+../.venv/bin/python scripts/run_study.py --run-id example_study --stage evaluate --device cuda:0
+```
+
+Settings are in `configs/study_hidden_dynamics.json`. The
+[study protocol](docs/study_protocol.md) includes commands for longer MLP
+forecasts, frozen transfer, analog controls, 256-step rollouts, audits and figures.
+Final test scores are not computed.
 
 ## Files
 
 | Location | Contents |
 | --- | --- |
-| `src/`, `scripts/`, `configs/`, `tests/` | Code, run settings and checks; included in Git |
-| `docs/`, `results/` | Short documentation, rounded results and figures; included in Git |
-| `../artifacts/<run-id>/` | Data, states, split manifest, precise metrics, fitted models and logs |
-| `../cache/`, `../.venv/` | Model cache and local environment |
+| `src/`, `scripts/`, `configs/`, `tests/` | Code, declared settings and checks; included in Git |
+| `docs/`, `results/` | Documentation, rounded summaries and figures; included in Git |
+| `../artifacts/<run-id>/` | Data, states, precise metrics, fitted models and logs |
+| `../cache/`, `../.venv/` | Downloads and local environment |
 
-Generated artifacts, caches and environments stay outside the repository and are
-also excluded by `.gitignore` if placed inside it. Only selected summaries and
-figures are allowed in `results/`.
+Generated arrays, weights, caches and environments stay outside Git.
+Only selected summaries and figures are allowed in `results/`.

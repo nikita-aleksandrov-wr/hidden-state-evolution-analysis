@@ -1,0 +1,52 @@
+{
+  "artifact_audit_passed": true,
+  "bootstrap_samples_over_series": 2000,
+  "condition_protocol_dataset_groups": 40,
+  "config": "configs/study_hidden_dynamics.json",
+  "context_raw": 512,
+  "date": "2026-10-17",
+  "extraction_seconds": 222.84,
+  "feature_files": 184,
+  "fp16_r2_change_below_0_001": true,
+  "frozen_rollout_horizons": [
+    128,
+    256
+  ],
+  "generated_series": 46,
+  "gpu": "NVIDIA H200, device 7",
+  "horizons": [
+    1,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "layers_zero_based": [
+    5,
+    6
+  ],
+  "mlp_fits": 72,
+  "mlp_seeds": [
+    2026,
+    2027,
+    2028
+  ],
+  "model": "amazon/chronos-2",
+  "null_control_fits": 400,
+  "precision_check_cases": 10,
+  "prepare_seconds": 97.73,
+  "random_init_seeds": [
+    2026,
+    2027,
+    2028
+  ],
+  "reserved_series": 14,
+  "ridge_reference_agrees": true,
+  "sampled_fp16_states_reproduced": true,
+  "state_dimension": 768,
+  "stride_raw": 16,
+  "sum_group_seconds_not_parallel_wall_time": 514.38,
+  "test_evaluated": false,
+  "unit_tests_passed": 20
+}

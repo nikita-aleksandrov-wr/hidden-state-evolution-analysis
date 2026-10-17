@@ -46,7 +46,7 @@ outputs/
 *.temp
 .ipynb_checkpoints/
 
-# Publish only the readable checkpoint summary and figures.
+# Publish only selected readable summaries and figures.
 /results/**
 !/results/**/
 !/results/**/README.md
@@ -54,3 +54,8 @@ outputs/
 !/results/**/run_summary.json
 !/results/**/baseline_validation.png
 !/results/**/lorenz_data.png
+!/results/**/summary.csv
+!/results/**/horizons.png
+!/results/**/long_rollouts.png
+!/results/**/controls.png
+!/results/**/transfer.png
