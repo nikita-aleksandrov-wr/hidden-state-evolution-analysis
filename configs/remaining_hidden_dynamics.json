@@ -1,0 +1,33 @@
+{
+  "seed": 2026,
+  "seeds": [2026, 2027, 2028],
+  "horizons": [1, 4, 8, 16, 32, 64],
+  "history_order": 8,
+  "pca_variance": 0.95,
+  "var_orders": [1, 2, 4, 8],
+  "mlp_horizons": [1, 4],
+  "ode": {
+    "width": 256,
+    "epochs": 60,
+    "patience": 10,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "segment_steps": 4,
+    "rk4_substeps": 1,
+    "rollout_steps": 256,
+    "rollout_starts": 50,
+    "root_starts": 32,
+    "root_iterations": 500,
+    "root_tolerance_fraction": 0.001
+  },
+  "ablations": {
+    "contexts": [16, 128, 512, 1024],
+    "layers": [0, 5, 6, 11],
+    "strides": [16, 64, 512],
+    "observation_noise_std": [0.01, 0.1],
+    "position_shuffle_seed": 2026,
+    "calibration_states": 128
+  },
+  "test_policy": "Reserved until model and analysis choices are frozen; no test tuning."
+}
