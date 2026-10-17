@@ -7,6 +7,63 @@ from mosd_hidden_dynamics.extended import (dmd_rollout, fit_dmd, fit_pca, fit_va
 
 
 class ExtendedModelsTests(unittest.TestCase):
+    def test_position_control_is_past_only_and_restores_encoder(self):
+        import torch
+        from chronos.chronos2.config import Chronos2CoreConfig
+        from chronos.chronos2.model import Chronos2Model
+        from mosd_hidden_dynamics.ablations import extract_variant
+        from mosd_hidden_dynamics.extraction import extract_vectors
+        torch.manual_seed(19)
+        config = Chronos2CoreConfig(d_model=8, d_kv=4, d_ff=16, num_layers=2, num_heads=2,
+            dropout_rate=0, attn_implementation="eager", chronos_config={"context_length": 32,
+            "input_patch_size": 4, "input_patch_stride": 4, "output_patch_size": 4,
+            "quantiles": [.1, .5, .9], "use_reg_token": True})
+        model = Chronos2Model(config).eval()
+        observed = np.random.default_rng(20).normal(size=64).astype(np.float32)
+        before = extract_vectors(model, observed, np.array([31, 39]), [0, 1], 32, 2)
+        shuffled = extract_variant(model, observed, np.array([31, 39]), 32, 2, [0, 1], 2026)
+        altered = observed.copy()
+        altered[40:] = 10000
+        repeated = extract_variant(model, altered, np.array([31, 39]), 32, 2, [0, 1], 2026)
+        after = extract_vectors(model, observed, np.array([31, 39]), [0, 1], 32, 2)
+        np.testing.assert_array_equal(before, after)
+        np.testing.assert_array_equal(shuffled, repeated)
+        self.assertGreater(np.max(np.abs(shuffled[:, :2] - before)), 1e-6)
+        self.assertEqual(shuffled.shape, (2, 3, 8))
+
+    def test_context_ablations_share_endpoints_and_preserve_entity_holdout(self):
+        from pathlib import Path
+        import tempfile
+        import json
+        from mosd_hidden_dynamics.ablations import load_ablation_group
+        from mosd_hidden_dynamics.utils import sha256_file
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            registry = []
+            for series, role in [("a", "train"), ("b", "val")]:
+                record = {"series_id": series, "role": role, "dataset": "toy", "length": 4096,
+                          "test_start": 3276, "data_sha256": "fixed_raw_digest"}
+                registry.append(record)
+                for context in (16, 32):
+                    output = root / "ablations/features" / f"context_{context}"
+                    output.mkdir(parents=True, exist_ok=True)
+                    ends = np.arange(context - 1, 3276, 16)
+                    states = np.tile(ends[:, None, None], (1, 1, 3)).astype(np.float32)
+                    path = output / (series + ".npz")
+                    np.savez(path, states=states, raw_endpoints=ends, observed=np.arange(3276))
+                    path.with_suffix(".json").write_text(json.dumps({"spec": {"context": context},
+                        "sha256": sha256_file(path), "data_sha256": record["data_sha256"],
+                        "labels": ["block5"], "test_states_extracted": False}))
+            manifests = []
+            for context in (16, 32):
+                group, anchors, _ = load_ablation_group({}, registry, root, "toy", "out_of_series",
+                    f"context_{context}", "block5", common_context=64)
+                self.assertEqual(set(group["train"]["ids"]), {"a"})
+                self.assertEqual(set(group["val"]["ids"]), {"b"})
+                np.testing.assert_array_equal(group["val"]["y4"] - group["val"]["x"], 64)
+                manifests.append(anchors)
+            self.assertEqual(manifests[0], manifests[1])
+
     def test_dmd_reconstructs_affine_map_and_rolls_its_own_state(self):
         rng = np.random.default_rng(7)
         x = rng.normal(size=(300, 3))
