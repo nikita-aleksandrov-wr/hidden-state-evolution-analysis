@@ -191,7 +191,7 @@ def main():
         ax.axhline(1, color=".5", ls="--", lw=.8)
         ax.set(xscale="log", yscale="log", xlabel="Analysis steps (16 observations each)", title=LABELS.get(d, d))
         ax.grid(alpha=.18)
-    axes[0].set_ylabel(r"$1-\mathrm{macro}\ R^2$ (lower is better)")
+    axes[0].set_ylabel(r"$1-\mathrm{macro}\ R^2$")
     fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center", ncol=3, frameon=False)
     fig.tight_layout(rect=(0, .2, 1, 1))
     fig.savefig(output / "long_rollouts.png")
