@@ -30,7 +30,12 @@ def mean_rows(rows, keys, metrics):
             per_series[row["series_id"]].append(row)
         scores = {m: float(np.mean([np.mean([r[m] for r in trials]) for trials in per_series.values()]))
                   for m in metrics}
-        result.append(dict(zip(keys, key)) | scores | {"n_series": len(per_series)})
+        seeds = {r["seed"] for r in values if r.get("seed") is not None}
+        spread = {m + "_std_over_seeds": float(np.std([
+            np.mean([r[m] for r in values if r.get("seed") == seed]) for seed in seeds]))
+            for m in metrics} if len(seeds) > 1 else {}
+        result.append(dict(zip(keys, key)) | scores | spread |
+                      {"n_series": len(per_series), "n_seeds": len(seeds) if seeds else 1})
     return result
 
 
@@ -163,7 +168,7 @@ def main():
     plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False,
                          "savefig.dpi": 190, "figure.facecolor": "white"})
     fig, axes = plt.subplots(1, 3, figsize=(10.2, 3.1), sharey=True)
-    methods = [("ridge_original", "Ridge", long), ("neural_ode", "ODE", long),
+    methods = [("ridge_original", "Ridge", long), ("neural_ode", "ODE dt=1", long),
                ("residual_training1", "Residual (1)", residual),
                ("residual_training8", "Residual (8)", residual),
                ("ridge_radius_0.99", r"Ridge $\rho\leq0.99$", residual)]
@@ -239,6 +244,14 @@ def main():
     fig.tight_layout()
     fig.savefig(output / "transfer.png")
     plt.close(fig)
+    for path in [root / name for name in ("ode_resolution/metrics.json", "ode_interpolation/metrics.json",
+        "research_controls/primary_class_selection.json", "research_controls/declared_h2_and_counterchecks.json",
+        "research_controls/descriptive.json", "audit_review.json")] + [extra / "frozen_transfer/metrics.json"]:
+        sources[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for dataset in DATASETS:
+        for path in (root / "remaining_baselines" / f"{dataset}_out_of_series/pca.json",
+                     root / "ode_full_rollouts" / dataset / "trajectories.npz"):
+            sources[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
     facts = {"primary_class": selection, "short_results": short, "dense_results": interpolation,
              "input_sha256": sources, "test_evaluated": False}
     (paper / "facts.json").write_text(json.dumps(facts, indent=2) + "\n")
