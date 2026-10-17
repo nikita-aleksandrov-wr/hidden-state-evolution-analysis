@@ -112,7 +112,7 @@ def rollout_ode(fit, x, horizons, substeps=None):
     return result
 
 
-def field_diagnostics(fit, train, val, cfg):
+def field_diagnostics(fit, train, val, cfg, initial_states=None):
     model = fit["model"]
     device = next(model.parameters()).device
     mean = torch.as_tensor(fit["mean"], device=device, dtype=torch.float32)
@@ -124,7 +124,12 @@ def field_diagnostics(fit, train, val, cfg):
     with torch.no_grad():
         magnitude = (model(training) * scale).abs().amax(dim=1).median()
     threshold = float(magnitude) * cfg["root_tolerance_fraction"]
-    starts[0] = training.mean(0)
+    if initial_states is None:
+        starts[0] = training.mean(0)
+    else:
+        starts = torch.as_tensor((initial_states - fit["mean"]) / fit["scale"], device=device, dtype=torch.float32).clone()
+        if len(starts) != cfg["root_starts"]:
+            raise ValueError("Root-start count differs from the declared matched states")
     point = torch.nn.Parameter(starts)
     for parameter in model.parameters():
         parameter.requires_grad_(False)

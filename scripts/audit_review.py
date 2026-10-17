@@ -30,6 +30,16 @@ def main():
     for name in ("ode_interpolation", "research_controls"):
         assert not json.loads((root / name / "complete.json").read_text())["test_evaluated"]
     assert json.loads((root / "chaotic_regimes/complete.json").read_text())["no_model_test_data_used"]
+    root_cases = sorted((root / "matched_roots").glob("*/complete.json"))
+    assert len(root_cases) == 6
+    counts["matched_roots"] = len(root_cases)
+    for path in root_cases:
+        assert not json.loads(path.read_text())["test_evaluated"]
+        metadata = json.loads((path.parent / "run_metadata.json").read_text())
+        assert metadata["starts"] == 50 and not metadata["refitted"]
+        for seed in (2026, 2027, 2028):
+            diagnostics = json.loads((path.parent / f"roots_seed{seed}.json").read_text())
+            assert len(diagnostics["candidates"]) == 50
     main_registry = json.loads((root / "series_registry.json").read_text())
     extra_registry = json.loads((extra / "series_registry.json").read_text())
     reserved_count, feature_count, anchor_count = 0, 0, 0

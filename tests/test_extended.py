@@ -7,6 +7,24 @@ from mosd_hidden_dynamics.extended import (dmd_rollout, fit_dmd, fit_pca, fit_va
 
 
 class ExtendedModelsTests(unittest.TestCase):
+    def test_matched_root_search_recovers_known_stable_equilibrium(self):
+        import torch
+        from mosd_hidden_dynamics.neural_ode import field_diagnostics
+        field = torch.nn.Linear(2, 2)
+        with torch.no_grad():
+            field.weight.copy_(torch.diag(torch.tensor([-1., -2.])))
+            field.bias.copy_(torch.tensor([.3, -.4]))
+        train = np.random.default_rng(27).normal(size=(60, 2)).astype(np.float32)
+        starts = train[:50].copy()
+        fit = {"model": field, "mean": np.zeros(2), "scale": np.ones(2), "seed": 27}
+        cfg = {"root_starts": 50, "root_iterations": 100, "root_tolerance_fraction": .001}
+        result, roots, spectra = field_diagnostics(fit, train, train, cfg, initial_states=starts)
+        self.assertEqual(result["distinct_approximate_zeros"], 1)
+        np.testing.assert_allclose(roots[0], [.3, -.2], atol=1e-4)
+        np.testing.assert_allclose(np.sort(spectra[0].real), [-2, -1], atol=1e-6)
+        self.assertTrue(any(row.get("classification") == "stable" for row in result["candidates"]))
+        np.testing.assert_array_equal(starts, train[:50])
+
     def test_position_control_is_past_only_and_restores_encoder(self):
         import torch
         from chronos.chronos2.config import Chronos2CoreConfig

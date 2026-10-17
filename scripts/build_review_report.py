@@ -15,6 +15,10 @@ DATASETS = ["Lorenz", "Rossler", "electricity"]
 LABELS = {"electricity": "Electricity", "electricity_extra": "Extra meters", "solar": "Solar"}
 
 
+def formatted(value):
+    return f"{0.0 if abs(value) < .0005 else value:.3f}"
+
+
 def read(path):
     return json.loads(path.read_text())
 
@@ -52,7 +56,7 @@ def table(path, columns, rows):
     lines = [r"\begin{tabular}{" + "l" + "r" * (len(columns) - 1) + "}", r"\toprule",
              " & ".join(columns) + r" \\", r"\midrule"]
     for row in rows:
-        lines.append(" & ".join(f"{v:.3f}" if isinstance(v, (float, np.floating)) else str(v) for v in row) + r" \\")
+        lines.append(" & ".join(formatted(v) if isinstance(v, (float, np.floating)) else str(v) for v in row) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -117,7 +121,7 @@ def main():
         writer = csv.DictWriter(stream, columns, extrasaction="ignore")
         writer.writeheader()
         for row in all_rows:
-            writer.writerow({k: f"{v:.3f}" if isinstance(v, float) else v for k, v in row.items()})
+            writer.writerow({k: formatted(v) if isinstance(v, float) else v for k, v in row.items()})
     short = []
     for dataset in DATASETS:
         for k in (1, 4):

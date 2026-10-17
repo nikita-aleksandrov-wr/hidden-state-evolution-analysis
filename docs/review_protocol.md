@@ -56,6 +56,7 @@ done
 $PY scripts/run_ode_interpolation.py --run-dir "$RUN" --device cuda:0
 $PY scripts/run_ode_full_rollouts.py --run-dir "$RUN" --device cuda:0
 $PY scripts/check_ode_resolution.py --run-dir "$RUN" --device cuda:0
+$PY scripts/run_matched_root_search.py --run-dir "$RUN" --device cpu
 $PY scripts/check_chaotic_regimes.py --main-run "$RUN" --additional-run "$ADD"
 $PY scripts/analyze_research_controls.py --run-dir "$RUN"
 $PY scripts/audit_review.py --run-dir "$RUN" --additional-run "$ADD"
