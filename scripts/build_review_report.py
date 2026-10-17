@@ -81,13 +81,16 @@ def main():
     all_rows.extend({"section": "interpolation", "horizon": 4, **r} for r in dense)
     selection = read(root / "research_controls/primary_class_selection.json")
     h2 = read(root / "research_controls/declared_h2_and_counterchecks.json")
+    all_rows.extend({"section": "h2_specificity", "model": r["temporal_model_class"], "horizon": 1, **r} for r in h2)
     desc = mean_rows([r for r in read(root / "research_controls/descriptive.json")
                       if r["split"] == "val" and r["representation"].endswith("_native")],
                      ["dataset", "condition", "protocol", "representation"],
                      ["mean_relative_adjacent_jump", "lag1_cosine"])
+    all_rows.extend({"section": "native_description", "model": r["representation"], **r} for r in desc)
     columns = ["section", "dataset", "protocol", "condition", "model", "horizon", "subset",
-               "r2", "cosine", "relative_error", "n_series", "n_seeds",
+               "r2", "cosine", "relative_error", "n_series", "n_seeds", "comparison",
                "r2_std_over_seeds", "cosine_std_over_seeds",
+               "delta_r2", "delta_cosine", "mean_relative_adjacent_jump", "lag1_cosine",
                "delta_r2_ci_low", "delta_r2_ci_high", "delta_cosine_ci_low", "delta_cosine_ci_high"]
     with (output / "summary.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, columns, extrasaction="ignore")
@@ -103,7 +106,7 @@ def main():
                          [lookup(ode, dataset, "neural_ode", k)["r2"]])
     table(paper / "short_results.tex",
           ["Dataset", "$k$", "Persist.", "Ridge", "MLP", "MLP+history", "Ridge+obs.", "ODE"], short)
-    table(paper / "additional_results.tex", ["Dataset", "Ridge $k=1$", "MLP $k=1$", "Ridge $k=4$", "MLP $k=4$"],
+    table(paper / "additional_results.tex", ["Dataset", "Ridge 1", "MLP 1", "Ridge 4", "MLP 4"],
           [[LABELS.get(d, d)] + [lookup(additional, d, m, k)["r2"] for k in (1, 4)
                                 for m in ("ridge_direct", "mlp_direct")]
            for d in ("Thomas", "Aizawa", "solar", "electricity_extra")])
