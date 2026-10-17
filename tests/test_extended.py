@@ -57,6 +57,26 @@ class ExtendedModelsTests(unittest.TestCase):
         actual.sum().backward()
         self.assertAlmostEqual(coefficient.grad.item(), float((2 * expected).sum()), places=6)
 
+    def test_ode_training_checkpoint_roundtrip(self):
+        from pathlib import Path
+        import tempfile
+        from mosd_hidden_dynamics.neural_ode import fit_ode, load_ode, rollout_ode, save_ode
+        rng = np.random.default_rng(12)
+        x = rng.normal(size=(24, 3))
+        trajectory = np.stack([x * .9 ** k for k in range(5)], axis=1)
+        train = {"x": x, "trajectory": trajectory, "y4": trajectory[:, -1]}
+        val = {key: value[:8] for key, value in train.items()}
+        val["ids"] = np.repeat(["a", "b"], 4)
+        cfg = {"width": 8, "epochs": 2, "patience": 2, "batch_size": 8, "learning_rate": .001,
+               "weight_decay": .0001, "segment_steps": 4, "rk4_substeps": 1}
+        fit = fit_ode(train, val, cfg, 12, "cpu")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "own_model.pt"
+            save_ode(path, fit)
+            restored = load_ode(path, "cpu")
+            np.testing.assert_allclose(rollout_ode(fit, x[:3], [4])[4],
+                                       rollout_ode(restored, x[:3], [4])[4])
+
 
 if __name__ == "__main__":
     unittest.main()

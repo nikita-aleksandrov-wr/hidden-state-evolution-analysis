@@ -117,7 +117,7 @@ def field_diagnostics(fit, train, val, cfg):
     chosen = rng.choice(len(training), size=min(cfg["root_starts"], len(training)), replace=False)
     starts = training[chosen].detach().clone()
     with torch.no_grad():
-        magnitude = (model(training[:min(2048, len(training))]) * scale).abs().amax(dim=1).median()
+        magnitude = (model(training) * scale).abs().amax(dim=1).median()
     threshold = float(magnitude) * cfg["root_tolerance_fraction"]
     starts[0] = training.mean(0)
     point = torch.nn.Parameter(starts)
