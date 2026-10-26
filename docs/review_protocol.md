@@ -7,8 +7,9 @@ Set CUDA_VISIBLE_DEVICES to an allocated physical GPU; scripts then use logical 
 
 ## Comparisons
 
-- Common-anchor baselines: state ridge/MLP, eight-state history, current observed
-  patch, PCA95 affine DMD and VAR orders 1/2/4/8. MLP variants have approximately
+- Common-anchor baselines: state ridge/MLP, current-plus-previous-state history,
+  current observed patch, PCA95 affine DMD and VAR orders 1/2/4/8. Common anchors
+  support the longest eight-state VAR input. MLP variants have approximately
   matched parameter counts. All use train-only transforms and macro validation selection.
 - ODE: one 256-unit Tanh hidden layer, four-step segments, RK4, 60 epochs,
   patience 10 and three seeds. The foundation model stays frozen.

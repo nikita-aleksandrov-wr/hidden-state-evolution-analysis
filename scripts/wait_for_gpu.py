@@ -16,7 +16,7 @@ def active_pids(device):
 
 def main():
     parser = argparse.ArgumentParser(description="Wait for an assigned empty GPU, claim a CUDA context and run a local experiment queue")
-    parser.add_argument("--physical-gpu", type=int, choices=(0, 2, 6), required=True)
+    parser.add_argument("--physical-gpu", type=int, choices=range(8), required=True)
     parser.add_argument("--job-file", required=True)
     parser.add_argument("--stop-file", required=True)
     parser.add_argument("--poll-seconds", type=float, default=.25)

@@ -59,3 +59,8 @@ outputs/
 !/results/**/long_rollouts.png
 !/results/**/controls.png
 !/results/**/transfer.png
+
+# Rounded matched-comparison tables and figures.
+!/results/consistent_20261026/*.csv
+!/results/consistent_20261026/*.png
+!/results/consistent_20261026/*.pdf

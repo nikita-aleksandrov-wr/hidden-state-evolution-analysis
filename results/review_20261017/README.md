@@ -21,6 +21,7 @@ One analysis step advances by 16 observations.
 
 The primary comparison uses identical anchors supporting eight past states and
 64 future steps. This slightly changes the earlier Lorenz MLP result of 0.804.
+History readouts use the current and previous states; VAR(8) uses all eight.
 Adding history helps some linear fits; adding the current observed patch has a
 small effect in the tested setup. Neither observation establishes a Markov state.
 
@@ -44,8 +45,19 @@ small effect in the tested setup. Neither observation establishes a Markov state
 
 ![Matched long forecasts: lower error is better](long_rollouts.png)
 
-See [context/layer sensitivity](controls.png), [fixed-start PCA trajectories](horizons.png)
-and [frozen transfer to new domains](transfer.png).
+In this plot, the dashed line is the training-mean baseline. Residual (1)/(8)
+denotes the training segment length; ODE dt is the integration step in analysis
+units; rho is the linear operator's spectral radius. Macro R² weights entities equally.
+
+- [Context/layer sensitivity](controls.png): one-step ridge R²; context is measured
+  in observations, blocks are zero-indexed, and Final norm is the final normalized output.
+- [Fixed-start PCA trajectories](horizons.png): PC1/PC2 are training-fitted principal
+  components. Observed means extracted hidden states, not raw observations. Dots
+  mark initial states; top panels cover 0–4 steps and bottom panels 0–256.
+- [Frozen transfer](transfer.png): columns identify the source of the fitted ridge
+  map, rows the unseen target dataset. Cell values are one-step R²; colors show
+  1−R² on a logarithmic scale. Extra meters are additional electricity meters.
+
 The [rounded table](summary.csv) includes both protocols, seed variability,
 bootstrap intervals, ODE solver refinement and descriptive controls.
 

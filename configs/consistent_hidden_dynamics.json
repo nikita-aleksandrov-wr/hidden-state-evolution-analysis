@@ -1,0 +1,26 @@
+{
+  "datasets": ["Lorenz", "Rossler", "electricity"],
+  "seeds": [2026, 2027, 2028],
+  "horizons": [1, 4, 16, 64, 256],
+  "history_support": 8,
+  "selection_horizon": 4,
+  "training": {
+    "width": 256,
+    "epochs": 60,
+    "patience": 10,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "segment_steps": 4,
+    "selection_horizon": 4,
+    "rk4_substeps": 4
+  },
+  "ridge_alphas": [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+  "trajectory_starts_per_series": 16,
+  "plugin_starts_per_series": 32,
+  "plugin_horizons": [1, 4, 16, 64],
+  "projection_dimensions": 8,
+  "bounded_radius_multiplier": 10,
+  "bootstrap_samples": 2000,
+  "test_policy": "Validation only; original H1/H2 unchanged; final test requires a separately frozen evaluation procedure."
+}

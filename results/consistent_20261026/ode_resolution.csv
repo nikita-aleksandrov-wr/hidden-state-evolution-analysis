@@ -1,0 +1,10 @@
+dataset,seed,relative_difference_8_vs_16_k4,macro_r2_substeps16_k4_selection_anchors
+Lorenz,2026,0.001,0.791
+Lorenz,2027,0.001,0.796
+Lorenz,2028,0.001,0.786
+Rossler,2026,2.12e-04,0.992
+Rossler,2027,2.34e-04,0.991
+Rossler,2028,2.11e-04,0.991
+electricity,2026,1.16e-04,0.291
+electricity,2027,1.07e-04,0.300
+electricity,2028,1.01e-04,0.288
